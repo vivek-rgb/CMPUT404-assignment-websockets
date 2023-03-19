@@ -25,7 +25,7 @@ import os
 app = Flask(__name__)
 sockets = Sockets(app)
 app.debug = True
-
+clients = list()  
 class World:
     def __init__(self):
         self.clear()
@@ -59,7 +59,7 @@ class World:
     def world(self):
         return self.space
 
-class client:
+class Client:
     def __init__(self):
         self.queue = queue.Queue()
 
@@ -70,7 +70,7 @@ class client:
         return self.queue.get()
 
 myWorld = World()    
-clients = list()    
+  
 
 
 # https://github.com/abramhindle/WebSocketsExamples/blob/master/chat.py
@@ -98,10 +98,10 @@ def read_ws(ws,client):
     # XXX: TODO IMPLEMENT ME
     while True:
         message = ws.receive()
+        # print ("WS RECV: %s" % message)
         if message is not None:
             packet = json.loads(message)
-            for entity in packet:
-                myWorld.set(entity, packet[entity])
+            send_all_json(packet)
         else:
             break
 
@@ -111,7 +111,7 @@ def subscribe_socket(ws):
     '''Fufill the websocket URL of /subscribe, every update notify the
        websocket and read updates from the websocket '''
     # XXX: TODO IMPLEMENT ME
-    client = client()
+    client = Client()
     clients.append(client)
 
     g = gevent.spawn(read_ws, ws, client)
@@ -148,32 +148,32 @@ def update(entity):
 
     if request.method == 'PUT':
 
-        for key in packet:
-            myWorld.update(entity, key, packet[key])
-        return json.dumps(myWorld.get(entity), status=200)
+        for key, value in packet.items():
+            myWorld.update(entity, key, value)
+        return Response(json.dumps(packet), 200, mimetype='application/json')
     
     elif request.method == 'POST':
             
         myWorld.set(entity, packet)
-        return json.dumps(myWorld.get(entity), status=200)
+        return Response(json.dumps(packet), 200, mimetype='application/json')
 
 
 @app.route("/world", methods=['POST','GET'])    
 def world():
     '''you should probably return the world here'''
-    return Response(json.dumps(myWorld.world()),status = 200, mimetype='application/json')
+    return Response(json.dumps(myWorld.world()), 200, mimetype='application/json')
 
 @app.route("/entity/<entity>")    
 def get_entity(entity):
     '''This is the GET version of the entity interface, return a representation of the entity'''
-    return Response(json.dumps(myWorld.get(entity)),status = 200, mimetype='application/json')
+    return Response(json.dumps(myWorld.get(entity)),200, mimetype='application/json')
 
 
 @app.route("/clear", methods=['POST','GET'])
 def clear():
     '''Clear the world out!'''
     myWorld.clear()
-    return Response(json.dumps(myWorld.world()),status = 200, mimetype='application/json')
+    return Response(json.dumps(myWorld.world()), 200, mimetype='application/json')
 
 
 
